@@ -19,8 +19,6 @@ class RNN:
         n = X.shape[0]
         d = len(self.letters)        
 
-
-
         if not self.ini:
             # Model parameters
             self.Wxh = np.random.randn(n, d) * 0.01  # input to hidden
@@ -38,6 +36,7 @@ class RNN:
 
         for i in range(self.iteration_count):
             self.backward(X, y)
+            
 
         return self.forward(X)
     
@@ -46,7 +45,6 @@ class RNN:
         y = []
         n = X.shape[0]
         d = len(self.letters)
-        # print(self.h[59].shape, self.Whh.shape)
 
         for i in range(n):
             t = np.tanh(
@@ -57,30 +55,39 @@ class RNN:
             if i < n - 1: self.h[i+1] = t[i]
             y.append(self.Why @ t + self.yb) 
 
-        return self.show_prediction_as_letters(np.array(y))
+        print(self.softmax(np.array(y)).shape)
+        return self.softmax(np.array(y))
     
 
     def backward(self, X, y):
 
+        n = X.shape[0]
+        d = len(self.letters)
+
         cross_entropy_derivative = self.forward(X) - y
 
-        for x in X:
-            pass
+        self.dWxh = np.zeros((n, d))
+        self.dWhh = np.zeros((n, n))
+        self.dWhy = np.zeros((d, n))
+        self.dhb = np.zeros(n)
+        self.dyb = np.zeros(d)
 
-        self.dWxh = (1 - self.forward(X)**2) @ self.Why @ self.Whh
-        self.dWhh = (1 - self.forward(X)**2) @ self.Whh
-        self.dWhy = (1 - self.forward(X)**2)
-        self.dh = (1 - self.forward(X)**2) @ self.Whh
-        self.dhb = (1 - self.forward(X)**2)
-        self.db = 1
+        for i in range(n):
+            print((1-self.forward(X)**2) @ self.Why)
+            self.dWxh = (X[i] + self.dWxh) @ (1-self.forward(X)**2) @ self.Why
+            self.dWhh = (self.h[i] + self.dWhh) @ (1-self.forward(X)**2) @ self.Why
+            self.dWhy += self.h[i] @ cross_entropy_derivative
+            self.dhb = (1-self.forward(X)**2) @ self.Why
+            self.dyb = (1-self.forward(X)**2)
             
 
-        self.Wxh -= self.learning_rate * self.dWxh
-        self.Whh -= self.learning_rate * self.dWhh
-        self.Why -= self.learning_rate * self.dWhy
-        self.hb -= self.learning_rate * self.dhb
-        self.b -= self.learning_rate * self.db
-        self.h -= self.learning_rate * self.dh
+        self.Wxh -= self.learning_rate * self.dWxh @ cross_entropy_derivative
+        self.Whh -= self.learning_rate * self.dWhh @ cross_entropy_derivative
+        self.Why -= self.learning_rate / n * self.dWhy
+        self.hb -= self.learning_rate * self.dhb @ cross_entropy_derivative
+        self.yb -= self.learning_rate * self.dyb @ cross_entropy_derivative
+
+        print(self.loss(y, self.forward(X)))
 
     
     def one_hot(self, text):
@@ -88,6 +95,9 @@ class RNN:
         for i in range(len(text)):
             a.append(self.t[text[i]])
         return np.array(a)
+    
+    def loss(self, y_true, y_pred):
+        return -np.sum(y_true * np.log(y_pred))
     
     def softmax(self, x):
         return np.exp(x)/np.sum(np.exp(x))
@@ -117,8 +127,7 @@ class RNN:
 
 text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 rnn = RNN()
-text = rnn.one_hot(text)
+text1 = rnn.one_hot(text[:-1])
+text2 = rnn.one_hot(text[1:])
 
-y1 = rnn(text, None, False)
-y2 = rnn.forward(text)
-print(y2)
+rnn(text1, text2, True)
