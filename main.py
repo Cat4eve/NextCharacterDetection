@@ -55,7 +55,6 @@ class RNN:
             if i < n - 1: self.h[i+1] = t[i]
             y.append(self.Why @ t + self.yb) 
 
-        print(self.softmax(np.array(y)).shape)
         return self.softmax(np.array(y))
     
 
@@ -73,17 +72,16 @@ class RNN:
         self.dyb = np.zeros(d)
 
         for i in range(n):
-            print((1-self.forward(X)**2) @ self.Why)
-            self.dWxh = (X[i] + self.dWxh) @ (1-self.forward(X)**2) @ self.Why
+            self.dWxh =  (1-self.forward(X)**2) @ self.Why @ (X[i] + self.dWxh)
             self.dWhh = (self.h[i] + self.dWhh) @ (1-self.forward(X)**2) @ self.Why
-            self.dWhy += self.h[i] @ cross_entropy_derivative
+            self.dWhy += (self.h[i][np.newaxis] @ cross_entropy_derivative).T
             self.dhb = (1-self.forward(X)**2) @ self.Why
             self.dyb = (1-self.forward(X)**2)
             
 
         self.Wxh -= self.learning_rate * self.dWxh @ cross_entropy_derivative
         self.Whh -= self.learning_rate * self.dWhh @ cross_entropy_derivative
-        self.Why -= self.learning_rate / n * self.dWhy
+        self.Why -= self.learning_rate * self.dWhy / n
         self.hb -= self.learning_rate * self.dhb @ cross_entropy_derivative
         self.yb -= self.learning_rate * self.dyb @ cross_entropy_derivative
 
