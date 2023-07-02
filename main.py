@@ -5,44 +5,68 @@ class RNN:
         self.learning_rate = learning_rate
         self.iteration_count = iteration_count
 
+        self.ini = False
+
+        self.letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,.!`"? '
+
         self.t = {}
-        for i, v in enumerate('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'):
-            self.t[v] = np.zeros(52, dtype=int)
+        for i, v in enumerate(self.letters):
+            self.t[v] = np.zeros(len(self.letters), dtype=int)
             self.t[v][i] = 1
         
     def __call__(self, X, y=None, training=True):
+        
+        n = X.shape[0]
+        d = len(self.letters)        
+
+
+
+        if not self.ini:
+            # Model parameters
+            self.Wxh = np.random.randn(n, d) * 0.01  # input to hidden
+            self.Whh = np.random.randn(n, n) * 0.01  # hidden to hidden
+            self.Why = np.random.randn(d, n) * 0.01  # hidden to output
+            self.h = np.zeros((n, n)) # hidden encoded
+            self.hb = np.zeros(n) # hidden bias
+            self.yb = np.zeros(d) # output bias
+
+            self.ini = True
+
+
         if not training: return self.forward(X)
 
-        n = X.shape[0]
-        self.n = n
 
-        # Model parameters
-        self.Wxh = np.random.randn(n, n) * 0.01  # input to hidden
-        self.Whh = np.random.randn(n, n) * 0.01  # hidden to hidden
-        self.Why = np.random.randn(n, n) * 0.01  # hidden to output
-        self.h = np.random.randn((n, n)) * 0.01 # hidden encoded
-        self.hb = np.zeros(n) # hidden bias
-        self.b = 0 # output bias
-
-
-        for i in self.iteration_count:
+        for i in range(self.iteration_count):
             self.backward(X, y)
-            loss = self.loss(self.forward(X), y)
-            if i % 100 == 0: print(loss)
 
-
-        return self.__call__(X, y, False)
+        return self.forward(X)
     
 
     def forward(self, X):
         y = []
-        for i in range(self.n):
-            t = np.tanh(self.Whh @ self.h[i] + self.Wxh @ X[i] + self.hb[i])
-            y.append(self.Why @ t + self.b) 
-        return np.exp(y) / np.sum(np.exp(y))
+        n = X.shape[0]
+        d = len(self.letters)
+        # print(self.h[59].shape, self.Whh.shape)
+
+        for i in range(n):
+            t = np.tanh(
+                    self.Whh @ self.h[i]
+                    + self.Wxh @ X[i]
+                    + self.hb[i]
+                )
+            if i < n - 1: self.h[i+1] = t[i]
+            y.append(self.Why @ t + self.yb) 
+
+        return self.show_prediction_as_letters(np.array(y))
     
 
     def backward(self, X, y):
+
+        cross_entropy_derivative = self.forward(X) - y
+
+        for x in X:
+            pass
+
         self.dWxh = (1 - self.forward(X)**2) @ self.Why @ self.Whh
         self.dWhh = (1 - self.forward(X)**2) @ self.Whh
         self.dWhy = (1 - self.forward(X)**2)
@@ -62,21 +86,39 @@ class RNN:
     def one_hot(self, text):
         a = []
         for i in range(len(text)):
-            a.append(self.t[text[i]]) 
+            a.append(self.t[text[i]])
         return np.array(a)
+    
+    def softmax(self, x):
+        return np.exp(x)/np.sum(np.exp(x))
+    
+    def show_prediction_as_letters(self, x):
+        n = x.shape[0]
+        d = x.shape[1]
+        z = self.softmax(x)
+        y = ''
 
-    def loss(self, y_pred, y_true):
-        loss = -np.sum(y_true * np.log(y_pred + 1e-8))
-        return loss
+        for i in range(n):
+            m = max(z[i])
+            p = np.zeros(d)
+            for j in range(d):
+                p[j] = 0 if z[i][j] < m else 1
+
+            v = ''
+            for j in range(d):
+                if (self.t[self.letters[j]] == p).all():
+                    v += self.letters[j]
+            y += v
+        
+        return y
     
 
 
-rnn = RNN()
 
 text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-text = text.split(" ")
+rnn = RNN()
+text = rnn.one_hot(text)
 
-rnn(
-    [rnn.one_hot(t[0:-1]) for t in text], 
-    rnn.one_hot(text)
-)
+y1 = rnn(text, None, False)
+y2 = rnn.forward(text)
+print(y2)
