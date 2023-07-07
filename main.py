@@ -64,6 +64,7 @@ class RNN:
         d = len(self.letters)
 
         cross_entropy_derivative = self.forward(X) - y
+        tanh_derivative = 1 - self.forward(X)**2
 
         self.dWxh = np.zeros((n, d))
         self.dWhh = np.zeros((n, n))
@@ -72,11 +73,11 @@ class RNN:
         self.dyb = np.zeros(d)
 
         for i in range(n):
-            self.dWxh =  (1-self.forward(X)**2) @ self.Why @ (X[i] + self.dWxh)
+            self.dWxh =  tanh_derivative @ self.Why @ (X[i] + self.dWxh)
             self.dWhh = (self.h[i] + self.dWhh) @ (1-self.forward(X)**2) @ self.Why
             self.dWhy += (self.h[i][np.newaxis] @ cross_entropy_derivative).T
-            self.dhb = (1-self.forward(X)**2) @ self.Why
-            self.dyb = (1-self.forward(X)**2)
+            self.dhb = tanh_derivative @ self.Why
+            self.dyb = tanh_derivative
             
 
         self.Wxh -= self.learning_rate * self.dWxh @ cross_entropy_derivative
@@ -123,7 +124,7 @@ class RNN:
 
 
 
-text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+text = "Lorem ipsum dolor sit amet."
 rnn = RNN()
 text1 = rnn.one_hot(text[:-1])
 text2 = rnn.one_hot(text[1:])
